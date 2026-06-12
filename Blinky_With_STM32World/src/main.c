@@ -1,5 +1,4 @@
 #include "stm32f1xx_hal.h"
-#include <stdio.h>
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -10,7 +9,7 @@ int main(void)
     SystemClock_Config();
     MX_GPIO_Init();
 
-    uint32_t now = 0, last_blue = 0, last_green = 0;
+    uint32_t now = 0, last_blue = 0, last_external = 0;
     while (1)
     {
         now = HAL_GetTick();
@@ -20,9 +19,9 @@ int main(void)
             last_blue = now;
         }
         
-        if (now - last_green >= 1000){
+        if (now - last_external >= 1000){
             HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-            last_green = now;
+            last_external = now;
         }
     }
 }
