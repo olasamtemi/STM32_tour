@@ -55,9 +55,9 @@ static void MX_TIM2_PWM_Init(void)
     // Target Frequency = 72,000,000 / (71 + 1) * (999 + 1) = 1,000 Hz (1 kHz)
     // A 1kHz frequency is fast enough that the human eye cannot see it blinking!
     htim2.Instance = TIM2;
-    htim2.Init.Prescaler = 71;                    
+    htim2.Init.Prescaler = 71;            // Timer ticks at 1MHz        
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = 999;                      // Max count limit (ARR)
+    htim2.Init.Period = 999;              // Max count limit (ARR)
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     HAL_TIM_PWM_Init(&htim2);
 
