@@ -1,16 +1,14 @@
 #include "stm32f1xx_hal.h"
-//RGB Mood Light Project
 
-#define RED_PIN GPIO_PIN_3
-#define BLUE_PIN GPIO_PIN_2
-#define GREEN_PIN GPIO_PIN_1
-#define LED_PORT GPIOA
+#define SERVO_PIN GPIO_PIN_2
+#define SERVO_PORT GPIOA
 
 TIM_HandleTypeDef htim2;
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_PWM_Init(void);
+static uint16_t ServoPos(uint8_t POSITION);
 
 int main(void)
 {
@@ -18,63 +16,58 @@ int main(void)
     SystemClock_Config();
     MX_GPIO_Init();
     MX_TIM2_PWM_Init();
-
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+    
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-
-    // uint16_t red_brightness = 0, green_brightness = 0, blue_brightness = 0;
-
+    uint32_t now = HAL_GetTick(), time_elapsed = 0;
     while (1)
     {
-        for(uint16_t i=0;i<1000;i++)
-        {
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 500);
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 999-i);
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, i);
-
-            HAL_Delay(3);
+        for (uint8_t position = 0; position < 180; position += 5){
+            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, ServoPos(position));
+            HAL_Delay(1000);
         }
-            
-        for (uint16_t j = 0; j<1000; j++){
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 500);
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, j);
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, 999-j);
+        for (uint8_t position = 180; position > 0; position -= 5){
+            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, ServoPos(position));
+            HAL_Delay(1000);
+        }
 
-            HAL_Delay(3);
+        if (now - time_elapsed <= 500){
+
         }
     }
+}
+
+static uint16_t ServoPos(uint8_t POSITION)
+{
+    if (POSITION > 180) POSITION = 180;
+
+    return ((uint32_t)POSITION * 2000 / 180) + 500;
 }
 
 static void MX_TIM2_PWM_Init(void){
     __HAL_RCC_TIM2_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
-    
+
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    
-    GPIO_InitStruct.Pin = RED_PIN | GREEN_PIN | BLUE_PIN;
+
+    GPIO_InitStruct.Pin = SERVO_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(LED_PORT, &GPIO_InitStruct);
+    HAL_GPIO_Init(SERVO_PORT, &GPIO_InitStruct);
 
     htim2.Instance = TIM2;
     htim2.Init.Prescaler = 72 - 1;
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = 1000 - 1;
+    htim2.Init.Period = 20000 - 1;
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     HAL_TIM_PWM_Init(&htim2);
 
-TIM_OC_InitTypeDef sConfigOC = {0};
+    TIM_OC_InitTypeDef sConfigOC = {0};
 
-sConfigOC.OCMode = TIM_OCMODE_PWM1;
-sConfigOC.Pulse = 0;
-sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    sConfigOC.OCMode = TIM_OCMODE_PWM1;           // Set standard PWM mode 1
+    sConfigOC.Pulse = 500;                        // CCR Value: Sets the servo to starting position (0 degrees)
+    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;   // Pin goes HIGH starting from 0, turns LOW at CCR match
 
-HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2);
-HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3);
-HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4);
-    
+    HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3); // Map settings to Channel 1
 }
 
 static void MX_GPIO_Init(void){}
