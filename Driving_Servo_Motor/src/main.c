@@ -18,28 +18,28 @@ int main(void)
     MX_TIM2_PWM_Init();
     
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-    uint32_t now = HAL_GetTick(), time_elapsed = 0;
+
     while (1)
     {
-        for (uint8_t position = 0; position < 180; position += 5){
+        for (uint8_t position = 0; position <= 180; position += 5){
             __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, ServoPos(position));
-            HAL_Delay(1000);
+            HAL_Delay(30);
         }
+        HAL_Delay(300);
         for (uint8_t position = 180; position > 0; position -= 5){
             __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, ServoPos(position));
-            HAL_Delay(1000);
+            HAL_Delay(30);
         }
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, ServoPos(0));
+        HAL_Delay(300);
 
-        if (now - time_elapsed <= 500){
-
-        }
     }
 }
 
 static uint16_t ServoPos(uint8_t POSITION)
 {
     if (POSITION > 180) POSITION = 180;
-
+    
     return ((uint32_t)POSITION * 2000 / 180) + 500;
 }
 
