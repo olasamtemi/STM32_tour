@@ -47,7 +47,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_PORT, &GPIO_InitStruct);
   
-  // Configure PA4 as input with EXTI Rising Edge Trigger (for NC external pull-up configuration)
+  // Configure PA4 as input with EXTI Falling Edge Trigger (for NC external pull-up configuration)
   GPIO_InitStruct.Pin = BUTTON_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING; 
   GPIO_InitStruct.Pull = GPIO_NOPULL; // External resistor handles the pull-up physics
