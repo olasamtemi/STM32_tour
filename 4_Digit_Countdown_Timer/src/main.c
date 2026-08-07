@@ -27,9 +27,9 @@
 
 
 /* Buzzer Pin */
-#define BUZZER GPIO_PIN_13
-#define BUZZ_PORT GPIOC
-#define DEBOUNCE_MS 50
+#define BUZZER GPIO_PIN_12
+#define BUZZ_PORT GPIOB
+#define DEBOUNCE_MS 150
 
 TIM_HandleTypeDef htim2;
 
@@ -38,8 +38,9 @@ static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void set_number_digits(uint16_t number);
 static void display_digit(uint8_t posiiton, uint8_t digit);
+static void time_up();
 
-volatile uint16_t set_time = 0;
+volatile uint16_t set_time = 10;
 volatile static bool is_running = false;
 
 int main(void)
@@ -51,7 +52,9 @@ int main(void)
     
     HAL_TIM_Base_Start_IT(&htim2);
     
-    uint32_t time_elapsed = 0;
+    uint32_t time_elapsed = HAL_GetTick();
+    const uint16_t interval_ms = 1000;
+
     set_number_digits(set_time);
     
     
@@ -59,16 +62,26 @@ int main(void)
     {
         uint32_t now = HAL_GetTick();
 
-
-        if(now - time_elapsed >= 1000 && set_time > 0 && is_running){
-            if (set_time == 0){
-                is_running = false;
-                HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, 1);
+        if (now - time_elapsed >= interval_ms && is_running)
+        {
+            if (set_time >= 0)
+            {
+                set_time--;
+                
+                if (set_time == 0)
+                {
+                    set_number_digits(set_time);
+                    time_up();
+                }
+                set_number_digits(set_time);
+                time_elapsed = now;
             }
-            set_time--;
-            set_number_digits(set_time);
-            time_elapsed = now;
+            else 
+            {
+                is_running = false;
+            }
         }
+
         __WFI(); // Wait For Interrupt
     }
 }
@@ -105,6 +118,22 @@ static void display_digit(uint8_t position, uint8_t digit)
     DIG_PORT->ODR &= ~(mask);
     DISPLAY_PORT->ODR = digit_pattern[digit];
     DIG_PORT->ODR |= digit_pin[position];
+
+}
+
+static void time_up()
+{
+    uint32_t timer_elapse_time = HAL_GetTick();
+    uint32_t buzz_duration;
+
+    is_running = false;                    
+    for (buzz_duration = HAL_GetTick(); timer_elapse_time - buzz_duration <= 5000; )
+    {
+        HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, GPIO_PIN_SET);
+        timer_elapse_time = HAL_GetTick();
+    }
+    HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, GPIO_PIN_RESET);
+
 
 }
 
@@ -180,16 +209,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
         if (interrupt_time - last_incr_press > DEBOUNCE_MS)
         {
-            set_time++;
-            set_number_digits(set_time);
-            last_incr_press = interrupt_time;
+            if (!is_running){
+                set_time++;
+                set_number_digits(set_time);
+                last_incr_press = interrupt_time;
+            }
         }
     }
     else if (GPIO_Pin == DECR_BUTTON)
     {
         if (interrupt_time - last_decr_press > DEBOUNCE_MS)
         {
-            if (set_time != 0)
+            if (set_time != 0 && !is_running)
                 set_time--;
             set_number_digits(set_time);
             last_decr_press = interrupt_time;
@@ -202,7 +233,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             if (!is_running)
             is_running = true;
             else 
-            is_running = false;
+                is_running = false;
             last_start_press = interrupt_time;
         }
     }
@@ -246,6 +277,7 @@ static void MX_GPIO_Init(void)
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(BUZZ_PORT, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, GPIO_PIN_RESET);
 }
 
 void SysTick_Handler(void)
