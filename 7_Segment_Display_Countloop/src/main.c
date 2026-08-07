@@ -55,7 +55,7 @@ static const uint8_t digit_pattern[10] =
     0x5B, // 2
     0x4F, // 3
     0x66, // 4
-     0x6D, // 5
+    0x6D, // 5
     0x7D, // 6
     0x07, // 7
     0x7F, // 8
