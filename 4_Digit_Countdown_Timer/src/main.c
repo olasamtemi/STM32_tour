@@ -29,7 +29,7 @@
 /* Buzzer Pin */
 #define BUZZER GPIO_PIN_12
 #define BUZZ_PORT GPIOB
-#define DEBOUNCE_MS 150
+#define DEBOUNCE_MS 200
 
 TIM_HandleTypeDef htim2;
 
@@ -40,7 +40,8 @@ static void set_number_digits(uint16_t number);
 static void display_digit(uint8_t posiiton, uint8_t digit);
 static void time_up();
 
-volatile uint16_t set_time = 10;
+volatile uint16_t set_time;
+volatile uint16_t time_left;
 volatile static bool is_running = false;
 
 int main(void)
@@ -57,23 +58,22 @@ int main(void)
 
     set_number_digits(set_time);
     
-    
     while (1)
     {
         uint32_t now = HAL_GetTick();
 
         if (now - time_elapsed >= interval_ms && is_running)
         {
-            if (set_time >= 0)
+
+            if (time_left > 0)
             {
-                set_time--;
+                time_left--;
+                set_number_digits(time_left);
                 
-                if (set_time == 0)
+                if (time_left == 0)
                 {
-                    set_number_digits(set_time);
                     time_up();
                 }
-                set_number_digits(set_time);
                 time_elapsed = now;
             }
             else 
@@ -123,15 +123,16 @@ static void display_digit(uint8_t position, uint8_t digit)
 
 static void time_up()
 {
-    uint32_t timer_elapse_time = HAL_GetTick();
-    uint32_t buzz_duration;
+    uint32_t timer_elapse_time = HAL_GetTick(), buzzing;
+    uint16_t buzz_duration_ms = 3000;
 
     is_running = false;                    
-    for (buzz_duration = HAL_GetTick(); timer_elapse_time - buzz_duration <= 5000; )
+    for (buzzing = HAL_GetTick(); timer_elapse_time - buzzing <= buzz_duration_ms; )
     {
-        HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, 1);
         timer_elapse_time = HAL_GetTick();
     }
+
     HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, GPIO_PIN_RESET);
 
 
@@ -212,6 +213,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             if (!is_running){
                 set_time++;
                 set_number_digits(set_time);
+                time_left = set_time + 1;
                 last_incr_press = interrupt_time;
             }
         }
@@ -220,9 +222,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
         if (interrupt_time - last_decr_press > DEBOUNCE_MS)
         {
-            if (set_time != 0 && !is_running)
+            if (set_time != 0 && !is_running){
                 set_time--;
-            set_number_digits(set_time);
+                set_number_digits(set_time);
+                time_left = set_time + 1;
+            }
             last_decr_press = interrupt_time;
         }
     }
@@ -230,9 +234,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
         if (interrupt_time - last_start_press > DEBOUNCE_MS)
         {
-            if (!is_running)
-            is_running = true;
-            else 
+            if (time_left == 0){
+                // RESET - ISH only when timer is elapsed (don't have room for extra push-button)
+                set_number_digits(set_time); 
+                time_left = set_time + 1;
+                return;
+            }
+            if (!is_running)              
+                is_running = true;
+            else
                 is_running = false;
             last_start_press = interrupt_time;
         }
