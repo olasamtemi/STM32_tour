@@ -1,30 +1,12 @@
 #include "stm32f1xx_hal.h"
 #include <stdbool.h>
-
-/* 7-segment display pins */
-#define SEG_A   GPIO_PIN_0
-#define SEG_B   GPIO_PIN_1
-#define SEG_C   GPIO_PIN_2
-#define SEG_D   GPIO_PIN_3
-#define SEG_E   GPIO_PIN_4
-#define SEG_F   GPIO_PIN_5
-#define SEG_G   GPIO_PIN_6
-#define SEG_DP  GPIO_PIN_7
-#define DISPLAY_PORT GPIOA
-
-/* Digit select pins */
-#define DIG_1   GPIO_PIN_5
-#define DIG_2   GPIO_PIN_6
-#define DIG_3   GPIO_PIN_7
-#define DIG_4   GPIO_PIN_8
-#define DIG_PORT GPIOB
+#include "display.h"
 
 /* Button Pins */
 #define INCR_BUTTON GPIO_PIN_1
 #define DECR_BUTTON GPIO_PIN_0
 #define START_PAUSE_BUTTON GPIO_PIN_9
 #define BUTTON_PORT GPIOB
-
 
 /* Buzzer Pin */
 #define BUZZER GPIO_PIN_12
@@ -36,8 +18,6 @@ TIM_HandleTypeDef htim2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
-static void set_number_digits(uint16_t number);
-static void display_digit(uint8_t posiiton, uint8_t digit);
 static void time_up();
 
 volatile uint16_t set_time;
@@ -50,13 +30,15 @@ int main(void)
     SystemClock_Config();
     MX_GPIO_Init();
     MX_TIM2_Init();
+    Display_Init();
+
     
     HAL_TIM_Base_Start_IT(&htim2);
     
     uint32_t time_elapsed = HAL_GetTick();
     const uint16_t interval_ms = 1000;
 
-    set_number_digits(set_time);
+    Display_SetNumber(set_time);
     
     while (1)
     {
@@ -68,7 +50,7 @@ int main(void)
             if (time_left > 0)
             {
                 time_left--;
-                set_number_digits(time_left);
+                Display_SetNumber(time_left);
                 
                 if (time_left == 0)
                 {
@@ -86,41 +68,6 @@ int main(void)
     }
 }
 
-uint8_t digit_pattern[] =
-{
-    ~0x3F, // 0
-    ~0x06, // 1
-    ~0x5B, // 2
-    ~0x4F, // 3
-    ~0x66, // 4
-    ~0x6D, // 5
-    ~0x7D, // 6
-    ~0x07, // 7
-    ~0x7F, // 8
-    ~0x6F  // 9
-};
-
-const uint16_t digit_pin[] = {
-    DIG_1,
-    DIG_2,
-    DIG_3,
-    DIG_4
-};
-
-const uint16_t mask = DIG_1 | DIG_2 | DIG_3 | DIG_4;
-
-static void display_digit(uint8_t position, uint8_t digit)
-{
-
-    if(position > 3 || digit > 9){
-        return;
-    }
-    DIG_PORT->ODR &= ~(mask);
-    DISPLAY_PORT->ODR = digit_pattern[digit];
-    DIG_PORT->ODR |= digit_pin[position];
-
-}
-
 static void time_up()
 {
     uint32_t timer_elapse_time = HAL_GetTick(), buzzing;
@@ -136,17 +83,6 @@ static void time_up()
     HAL_GPIO_WritePin(BUZZ_PORT, BUZZER, GPIO_PIN_RESET);
 
 
-}
-
-static volatile uint8_t digits[4];
-
-static void set_number_digits(uint16_t number){
-    
-    digits[0] = number/1000;
-    digits[1] = (number/100) % 10;
-    digits[2] = (number/10) % 10;
-    digits[3] = number % 10;
-    
 }
 
 static void MX_TIM2_Init(void){
@@ -171,15 +107,13 @@ void TIM2_IRQHandler(void)
     HAL_TIM_IRQHandler(&htim2); // Clears the interrupt flag safely behind the scenes
 }
 
-static uint8_t current_digit = 0;
 // The user-facing callback that runs right after the flag is cleared
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2)
     {
-        display_digit(current_digit, digits[current_digit]);
-        current_digit = (current_digit + 1) % 4;
-    } 
+        Display_Refresh();
+    }
 }
 
 
@@ -212,7 +146,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         {
             if (!is_running){
                 set_time++;
-                set_number_digits(set_time);
+                Display_SetNumber(set_time);
                 time_left = set_time + 1;
                 last_incr_press = interrupt_time;
             }
@@ -224,7 +158,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         {
             if (set_time != 0 && !is_running){
                 set_time--;
-                set_number_digits(set_time);
+                Display_SetNumber(set_time);
                 time_left = set_time + 1;
             }
             last_decr_press = interrupt_time;
@@ -236,7 +170,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         {
             if (time_left == 0){
                 // RESET - ISH only when timer is elapsed (don't have room for extra push-button)
-                set_number_digits(set_time); 
+                Display_SetNumber(set_time); 
                 time_left = set_time + 1;
                 return;
             }
@@ -257,17 +191,6 @@ static void MX_GPIO_Init(void)
     __HAL_RCC_AFIO_CLK_ENABLE();
     
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    
-    /* Configure segment pins */
-    GPIO_InitStruct.Pin = SEG_A | SEG_B | SEG_C | SEG_D |
-                            SEG_E | SEG_F | SEG_G | SEG_DP;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(DISPLAY_PORT, &GPIO_InitStruct);
-    
-    /* Configure digit select pins */
-    GPIO_InitStruct.Pin = DIG_1 | DIG_2 | DIG_3 | DIG_4;
-    HAL_GPIO_Init(DIG_PORT, &GPIO_InitStruct);
     
     GPIO_InitStruct.Pin = INCR_BUTTON | DECR_BUTTON | START_PAUSE_BUTTON;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
