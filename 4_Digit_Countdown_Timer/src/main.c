@@ -31,7 +31,6 @@ int main(void)
     MX_GPIO_Init();
     MX_TIM2_Init();
     Display_Init();
-
     
     HAL_TIM_Base_Start_IT(&htim2);
     
