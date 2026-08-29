@@ -5,6 +5,7 @@
 #define ADC_PORT GPIOB
 
 TIM_HandleTypeDef htim2;
+ADC_HandleTypeDef hadc1;
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -15,15 +16,31 @@ int main(void)
 {
     HAL_Init();
     SystemClock_Config();
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+    PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+
+    HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
     MX_GPIO_Init();
+    MX_ADC_Init();
+    HAL_ADCEx_Calibration_Start(&hadc1);
     MX_TIM2_Init();
     Display_Init();
     
     HAL_TIM_Base_Start_IT(&htim2);
-    
+
     while (1)
     {
-        Display_SetNumber(300);
+        HAL_ADC_Start(&hadc1);
+
+        if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
+        {
+            uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
+            Display_SetNumber(adc_value);
+        }
+
+        HAL_ADC_Stop(&hadc1);
     }
 }
 
@@ -41,9 +58,26 @@ static void MX_GPIO_Init(void)
 }
 
 static void MX_ADC_Init(void){
+    ADC_ChannelConfTypeDef channel_config = {0};
+
     __HAL_RCC_ADC1_CLK_ENABLE();
     
+    hadc1.Instance = ADC1;
+    hadc1.Init.ContinuousConvMode = DISABLE;
+    hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+    hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+    hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc1.Init.NbrOfConversion = 1;
+
+    HAL_ADC_Init(&hadc1);
+
+    channel_config.Channel = ADC_CHANNEL_8;
+    channel_config.Rank = ADC_REGULAR_RANK_1;
+    channel_config.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;    
+    HAL_ADC_ConfigChannel(&hadc1, &channel_config);
+    
 }
+
 
 static void MX_TIM2_Init(void){
     __HAL_RCC_TIM2_CLK_ENABLE();

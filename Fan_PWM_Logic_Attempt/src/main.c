@@ -27,8 +27,6 @@ int main(void)
     MX_TIM2_PWM_Init(); 
     
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 
     
     while (1)
@@ -74,9 +72,8 @@ static void MX_TIM2_PWM_Init(void){
     // Target Frequency = 72,000,000 / (71 + 1) * (49 + 1) = 20,000 Hz (20 kHz)
     // A 1kHz frequency is fast enough that the human eye cannot see it blinking!
     htim2.Instance = TIM2;
-    htim2.Init.Prescaler = 71;                    
+    htim2.Init.Prescaler = 72 - 1;                    
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    // htim2.Init.Period = 50 -1; //For 20KHz frequency
     htim2.Init.Period = 1000 - 1;     //For 1kHz frequency  // Max count limit (ARR)
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     HAL_TIM_PWM_Init(&htim2);
