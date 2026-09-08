@@ -14,6 +14,7 @@ static void MX_ADC_Init(void);
 
 int main(void)
 {
+    
     HAL_Init();
     SystemClock_Config();
     RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
@@ -33,11 +34,14 @@ int main(void)
     while (1)
     {
         HAL_ADC_Start(&hadc1);
-
+        
         if (HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)
         {
             uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
-            Display_SetNumber(adc_value);
+            float input_voltage = ((float)adc_value * 3.3f) / 4095.0f;
+
+            uint16_t display_value = (uint16_t)(input_voltage * 100.0f);
+            Display_SetNumber(display_value);
         }
 
         HAL_ADC_Stop(&hadc1);
