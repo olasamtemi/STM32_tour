@@ -144,7 +144,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         if (interrupt_time - last_incr_press > DEBOUNCE_MS)
         {
             if (!is_running){
-                set_time++;
+                set_time+=5;
                 Display_SetNumber(set_time);
                 time_left = set_time + 1;
                 last_incr_press = interrupt_time;
